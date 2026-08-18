@@ -1,0 +1,207 @@
+local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
+
+local RoleDataStore = DataStoreService:GetDataStore("CapRankDataV1")
+
+--==================================================
+-- CHỈ CẦN GHI USERNAME VÀO ĐÂY
+--==================================================
+
+local Roles = {
+
+	["dev_bin"] = {
+		Title = "Devloper🛠",
+		TitleColor = Color3.fromRGB(0,255,8),
+		Color = Color3.fromRGB(0,255,42),
+		Rainbow = true,
+		Icon = "rbxassetid://123456789"
+	},
+
+	["Drakerzzzzzz6"] = {
+		Title = "Cụ tổ đánh gậy🗿",
+		TitleColor = Color3.fromRGB(255,170,0),
+		Color = Color3.fromRGB(255,255,255),
+		Rainbow = false,
+		Icon = "rbxassetid://987654321"
+	},
+
+	["teddycamtoplammap"] = {
+		Title = "🥀lốp tưởng love💔",
+		TitleColor = Color3.fromRGB(255,170,255),
+		Color = Color3.fromRGB(0,255,21),
+		Rainbow = true,
+		Icon = "rbxassetid://555555555"
+	},
+
+	["tennguoi4"] = {
+		Title = "Nhiếp Ảnh Gia📸",
+		TitleColor = Color3.fromRGB(255,170,0),
+		Color = Color3.fromRGB(0,255,42),
+		Rainbow = false,
+		Icon = "rbxassetid://111111111"
+	},
+
+	["tennguoi5"] = {
+		Title = "Cậu Cả💵",
+		TitleColor = Color3.fromRGB(255,170,255),
+		Color = Color3.fromRGB(255,170,255),
+		Rainbow = false,
+		Icon = "rbxassetid://222222222"
+	},
+
+	["tennguoi6"] = {
+		Title = "Cô Chiêu💖",
+		TitleColor = Color3.fromRGB(255,170,255),
+		Color = Color3.fromRGB(255,255,255),
+		Rainbow = false,
+		Icon = "rbxassetid://333333333"
+	},
+
+	["tennguoi7"] = {
+		Title = "Dân Chơi🚬",
+		TitleColor = Color3.fromRGB(255,0,4),
+		Color = Color3.fromRGB(255,255,255),
+		Rainbow = false,
+		Icon = "rbxassetid://444444444"
+	},
+
+	["tennguoi8"] = {
+		Title = "Dân Xã Hội🚬",
+		TitleColor = Color3.fromRGB(255,0,4),
+		Color = Color3.fromRGB(255,255,255),
+		Rainbow = false,
+		Icon = "rbxassetid://666666666"
+	},
+
+	["tennguoi9"] = {
+		Title = "Head Admin",
+		TitleColor = Color3.fromRGB(247,0,255),
+		Color = Color3.fromRGB(0,255,42),
+		Rainbow = true,
+		Icon = "rbxassetid://777777777"
+	},
+
+	["tennguoi10"] = {
+		Title = "Owner4👑",
+		TitleColor = Color3.fromRGB(255,1,230),
+		Color = Color3.fromRGB(0,255,42),
+		Rainbow = true,
+		Icon = "rbxassetid://888888888"
+	},
+}
+
+--==================================================
+-- APPLY ROLE
+--==================================================
+
+local function ApplyRole(player)
+
+	local role = Roles[string.lower(player.Name)]
+
+	if not role then
+		return
+	end
+
+	local character = player.Character
+	if not character then
+		return
+	end
+
+	local head = character:FindFirstChild("Head")
+	if not head then
+		return
+	end
+
+	local tag = head:FindFirstChild("NameTag")
+	if not tag then
+		return
+	end
+
+	local main = tag:FindFirstChild("Main")
+	if not main then
+		return
+	end
+
+	local nameLabel = main:FindFirstChild("UserDisplayName")
+	local username = main:FindFirstChild("Username")
+	local rank = main:FindFirstChild("Rank")
+
+	if not nameLabel or not username or not rank then
+		return
+	end
+
+	-- ROLE
+	rank.Text = role.Title
+	rank.TextColor3 = role.TitleColor
+
+	-- MÀU TÊN
+	if role.Rainbow then
+		RainbowEffect({
+			nameLabel,
+			username
+		})
+	else
+		nameLabel.TextColor3 = role.Color
+		username.TextColor3 = role.Color
+	end
+
+	-- ICON
+	if role.Icon and role.Icon ~= "" then
+
+		local icon = rank:FindFirstChild("RoleIcon")
+
+		if not icon then
+			icon = Instance.new("ImageLabel")
+			icon.Name = "RoleIcon"
+			icon.BackgroundTransparency = 1
+			icon.Size = UDim2.new(0,22,0,22)
+			icon.AnchorPoint = Vector2.new(0,0.5)
+			icon.Position = UDim2.new(1,5,0.5,0)
+			icon.ScaleType = Enum.ScaleType.Fit
+			icon.Parent = rank
+		end
+
+		icon.Image = role.Icon
+		icon.Visible = true
+	end
+end
+
+--==================================================
+-- KHI PLAYER VÀO
+--==================================================
+
+Players.PlayerAdded:Connect(function(player)
+
+	-- Role được khai báo sẵn theo username
+	LoadRole(player)
+
+	player.CharacterAdded:Connect(function()
+
+		task.wait(1)
+
+		ApplyRole(player)
+
+	end)
+end)
+
+--==================================================
+-- PLAYER ĐANG Ở SERVER
+--==================================================
+
+for _, player in ipairs(Players:GetPlayers()) do
+
+	LoadRole(player)
+
+	if player.Character then
+		task.wait(1)
+		ApplyRole(player)
+	end
+
+	player.CharacterAdded:Connect(function()
+
+		task.wait(1)
+
+		ApplyRole(player)
+
+	end)
+end
