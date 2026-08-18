@@ -1,0 +1,1326 @@
+--// ================= SERVICES =================
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local DataStoreService = game:GetService("DataStoreService")
+
+local LevelData =
+	DataStoreService:GetDataStore("PlayerLevelSystemV1")
+
+local RoleDataStore =
+	DataStoreService:GetDataStore("CapRankDataV1")
+
+local NameTagTemplate =
+	ReplicatedStorage:WaitForChild("NameTag")
+
+
+--// ================= ROLE CONFIG =================
+
+local Roles = {
+
+	["teddycamtoplammap"] = {
+		Title = "🥀lốp tưởng love💔",
+		TitleColor = Color3.fromRGB(255,170,255),
+		Color = Color3.fromRGB(0,255,21),
+		Rainbow = true
+	},
+
+	["drakerzzzzzz6"] = {
+		Title = "Cụ tổ đánh gậy🗿",
+		TitleColor = Color3.fromRGB(255,170,0),
+		Color = Color3.fromRGB(255,255,255),
+		Rainbow = true
+	},
+
+	["Taodepzai0189"] = {
+		Title = "Nhiếp Ảnh Gia📸",
+		TitleColor = Color3.fromRGB(255,170,0),
+		Color = Color3.fromRGB(0,255,42),
+		Rainbow = false
+	},
+
+	["toilakhoa196"] = {
+		Title = "Devloper🛠",
+		TitleColor = Color3.fromRGB(0,255,8),
+		Color = Color3.fromRGB(0,255,42),
+		Rainbow = true
+	},
+
+	["ehehuffifu"] = {
+		Title = "Support | Hỗ Trợ Member🛎️",
+		TitleColor = Color3.fromRGB(0,0,255),
+		Color = Color3.fromRGB(0,255,42),
+		Rainbow = true
+	},
+
+}
+
+
+--// ================= NGƯỜI CÓ QUYỀN CAPRANK =================
+
+local CapRankUsers = {
+
+	["teddycamtoplammap"] = true,
+	["drakerzzzzzz6"] = true,
+
+	-- Thêm người:
+	-- ["username"] = true,
+
+}
+
+
+--// ================= MÀU =================
+
+local CapColors = {
+
+	["đỏ"] =
+		Color3.fromRGB(255,0,0),
+
+	["xanh"] =
+		Color3.fromRGB(0,255,0),
+
+	["xanh lá"] =
+		Color3.fromRGB(0,255,0),
+
+	["xanh dương"] =
+		Color3.fromRGB(0,170,255),
+
+	["vàng"] =
+		Color3.fromRGB(255,255,0),
+
+	["cam"] =
+		Color3.fromRGB(255,170,0),
+
+	["hồng"] =
+		Color3.fromRGB(255,170,255),
+
+	["tím"] =
+		Color3.fromRGB(170,0,255),
+
+	["trắng"] =
+		Color3.fromRGB(255,255,255),
+
+	["đen"] =
+		Color3.fromRGB(0,0,0),
+
+	["cyan"] =
+		Color3.fromRGB(0,255,255),
+
+}
+
+
+--// ================= LEVEL =================
+
+local DanChiRole = {
+
+	Title = "Dân Chơi",
+
+	TitleColor =
+		Color3.fromRGB(255,0,0),
+
+	Color =
+		Color3.fromRGB(255,255,255),
+
+	Rainbow = false
+
+}
+
+local MAX_LEVEL = 30
+
+local PlayerStats = {}
+
+
+--// ================= NORMALIZE =================
+
+do
+
+	local newRoles = {}
+
+	for name,data in pairs(Roles) do
+
+		newRoles[
+			string.lower(name)
+		] = data
+
+	end
+
+	Roles = newRoles
+
+end
+
+
+--// ================= RAINBOW =================
+
+local function RainbowEffect(labels)
+
+	task.spawn(function()
+
+		local h = 0
+
+		while true do
+
+			for _,label in ipairs(labels) do
+
+				if not label
+					or not label.Parent then
+
+					return
+
+				end
+
+				label.TextColor3 =
+					Color3.fromHSV(
+						(h % 100) / 100,
+						1,
+						1
+					)
+
+			end
+
+			h += 1
+
+			task.wait(0.05)
+
+		end
+
+	end)
+
+end
+
+
+--// ================= LEVEL COLOR =================
+
+local function GetLevelColor(level)
+
+	if level >= 1
+		and level <= 20 then
+
+		return "#99ff99"
+
+	elseif level >= 21 then
+
+		return "#f8d96d"
+
+	end
+
+	return "#ffffff"
+
+end
+
+
+--// ================= TÌM PLAYER =================
+
+local function CapFind(name)
+
+	name = string.lower(name)
+
+
+	-- Tìm chính xác
+
+	for _,p in ipairs(
+		Players:GetPlayers()
+	) do
+
+		if string.lower(p.Name) == name
+			or string.lower(p.DisplayName) == name then
+
+			return p
+
+		end
+
+	end
+
+
+	-- Tìm gần đúng
+
+	for _,p in ipairs(
+		Players:GetPlayers()
+	) do
+
+		if string.find(
+			string.lower(p.Name),
+			name,
+			1,
+			true
+		)
+		or string.find(
+			string.lower(p.DisplayName),
+			name,
+			1,
+			true
+		) then
+
+			return p
+
+		end
+
+	end
+
+
+	return nil
+
+end
+
+
+--// ================= SAVE ROLE =================
+
+local function SaveRole(player)
+
+	local role =
+		Roles[
+			string.lower(player.Name)
+		]
+
+	if not role then
+		return
+	end
+
+
+	local success,err =
+		pcall(function()
+
+			RoleDataStore:SetAsync(
+
+				"Role_" ..
+				player.UserId,
+
+				{
+
+					Title =
+						role.Title,
+
+					-- Lưu cả icon
+					Icon =
+						role.Icon or "",
+
+					TitleColor = {
+
+						role.TitleColor.R,
+						role.TitleColor.G,
+						role.TitleColor.B
+
+					},
+
+					Color = {
+
+						role.Color.R,
+						role.Color.G,
+						role.Color.B
+
+					},
+
+					Rainbow =
+						role.Rainbow == true
+
+				}
+
+			)
+
+		end)
+
+
+	if not success then
+
+		warn(
+			"[CAPRANK] Save error:",
+			err
+		)
+
+	end
+
+end
+
+
+--// ================= LOAD ROLE =================
+
+local function LoadRole(player)
+
+	local data
+
+	local success,err =
+		pcall(function()
+
+			data =
+				RoleDataStore:GetAsync(
+
+					"Role_" ..
+					player.UserId
+
+				)
+
+		end)
+
+
+	if not success then
+
+		warn(
+			"[CAPRANK] Load error:",
+			err
+		)
+
+		return
+
+	end
+
+
+	if not data then
+		return
+	end
+
+
+	if not data.TitleColor
+		or not data.Color then
+
+		return
+
+	end
+
+
+	Roles[
+		string.lower(player.Name)
+	] = {
+
+		Title =
+			data.Title or "Người Dân",
+
+		-- Load icon
+		Icon =
+			data.Icon or "",
+
+		TitleColor =
+			Color3.new(
+
+				data.TitleColor[1],
+				data.TitleColor[2],
+				data.TitleColor[3]
+
+			),
+
+		Color =
+			Color3.new(
+
+				data.Color[1],
+				data.Color[2],
+				data.Color[3]
+
+			),
+
+		Rainbow =
+			data.Rainbow == true
+
+	}
+
+end
+
+
+--// ================= UPDATE LEVEL =================
+
+local function UpdateLevelDisplay(player)
+
+	local char =
+		player.Character
+
+	if not char then
+		return
+	end
+
+
+	local head =
+		char:FindFirstChild("Head")
+
+	if not head then
+		return
+	end
+
+
+	local tag =
+		head:FindFirstChild("NameTag")
+
+	if not tag then
+		return
+	end
+
+
+	local main =
+		tag:FindFirstChild("Main")
+
+	if not main then
+		return
+	end
+
+
+	local nameLabel =
+		main:FindFirstChild(
+			"UserDisplayName"
+		)
+
+	if not nameLabel then
+		return
+	end
+
+
+	local rank =
+		main:FindFirstChild("Rank")
+
+
+	local stats =
+		PlayerStats[player]
+
+	if not stats then
+		return
+	end
+
+
+	local levelColor =
+		GetLevelColor(
+			stats.Level
+		)
+
+
+	nameLabel.RichText =
+		true
+
+
+	nameLabel.Text =
+
+		'<font color="' ..
+		levelColor ..
+		'">(Lv ' ..
+		stats.Level ..
+		')</font> ' ..
+		player.DisplayName
+
+
+	if rank
+		and stats.Level >= 30
+		and not Roles[
+			string.lower(player.Name)
+		] then
+
+		rank.Text =
+			DanChiRole.Title
+
+		rank.TextColor3 =
+			DanChiRole.TitleColor
+
+	end
+
+end
+
+
+--// ================= APPLY ROLE =================
+
+local function ApplyRole(player)
+
+	local char =
+		player.Character
+
+	if not char then
+		return
+	end
+
+
+	local head =
+		char:FindFirstChild("Head")
+
+	if not head then
+		return
+	end
+
+
+	local tag =
+		head:FindFirstChild("NameTag")
+
+	if not tag then
+		return
+	end
+
+
+	local main =
+		tag:FindFirstChild("Main")
+
+	if not main then
+		return
+	end
+
+
+	local nameLabel =
+		main:FindFirstChild(
+			"UserDisplayName"
+		)
+
+	local username =
+		main:FindFirstChild(
+			"Username"
+		)
+
+	local rank =
+		main:FindFirstChild("Rank")
+
+
+	if not nameLabel
+		or not username
+		or not rank then
+
+		return
+
+	end
+
+
+	local role =
+		Roles[
+			string.lower(player.Name)
+		]
+
+
+	if role then
+
+		-- Role đã chứa icon rồi
+		-- Ví dụ: "Cậu Cả✅"
+
+		rank.Text =
+			role.Title
+
+
+		rank.TextColor3 =
+			role.TitleColor
+			or Color3.new(1,1,1)
+
+
+		if role.Rainbow then
+
+			RainbowEffect({
+
+				nameLabel,
+				username
+
+			})
+
+		else
+
+			nameLabel.TextColor3 =
+				role.Color
+				or Color3.new(1,1,1)
+
+			username.TextColor3 =
+				role.Color
+				or Color3.new(1,1,1)
+
+		end
+
+
+	else
+
+		local stats =
+			PlayerStats[player]
+
+
+		if stats
+			and stats.Level >= 30 then
+
+			rank.Text =
+				DanChiRole.Title
+
+			rank.TextColor3 =
+				DanChiRole.TitleColor
+
+			nameLabel.TextColor3 =
+				DanChiRole.Color
+
+			username.TextColor3 =
+				DanChiRole.Color
+
+		else
+
+			rank.Text =
+				"Người Dân"
+
+			rank.TextColor3 =
+				Color3.fromRGB(
+					0,
+					255,
+					0
+				)
+
+		end
+
+	end
+
+end
+
+
+--// ================= CAPRANK COMMAND =================
+
+local function CapCommand(player,message)
+
+	local args = {}
+
+
+	-- Tách từng phần
+
+	for word in string.gmatch(
+		message,
+		"%S+"
+	) do
+
+		table.insert(
+			args,
+			word
+		)
+
+	end
+
+
+	-- Kiểm tra command
+
+	if string.lower(
+		args[1] or ""
+	) ~= "/caprank" then
+
+		return
+
+	end
+
+
+	-- Kiểm tra quyền
+
+	if not CapRankUsers[
+		string.lower(player.Name)
+	] then
+
+		return
+
+	end
+
+
+	-- Cú pháp:
+
+	-- /caprank PlayerName
+	-- Tên Role Icon
+	-- MàuRole MàuTên
+
+	if #args < 5 then
+
+		warn(
+			"Cú pháp:"
+		)
+
+		warn(
+			"/caprank PlayerName TênRoleIcon MàuRole MàuTên"
+		)
+
+		return
+
+	end
+
+
+	--================================================
+	-- PLAYER
+	--================================================
+
+	local target =
+		CapFind(args[2])
+
+
+	if not target then
+
+		warn(
+			"Không tìm thấy Player: " ..
+			tostring(args[2])
+		)
+
+		return
+
+	end
+
+
+	--================================================
+	-- 2 PHẦN CUỐI = MÀU
+	--
+	-- Tất cả phần còn lại = ROLE
+	--
+	-- Ví dụ:
+	--
+	-- /caprank Anhsad
+	-- Cậu Cả✅
+	-- vàng
+	-- rainbow
+	--
+	-- Role = "Cậu Cả✅"
+	--================================================
+
+	local roleColorName =
+		args[#args - 1]
+
+
+	local nameColorName =
+		args[#args]
+
+
+	--================================================
+	-- LẤY ROLE + ICON
+	--================================================
+
+	local roleWords = {}
+
+
+	for i = 3,#args - 2 do
+
+		table.insert(
+			roleWords,
+			args[i]
+		)
+
+	end
+
+
+	local roleName =
+		table.concat(
+			roleWords,
+			" "
+		)
+
+
+	if roleName == "" then
+
+		warn(
+			"Role không được để trống!"
+		)
+
+		return
+
+	end
+
+
+	--================================================
+	-- MÀU ROLE
+	--================================================
+
+	local roleColor =
+		CapColors[
+			string.lower(
+				roleColorName
+			)
+		]
+
+
+	if not roleColor then
+
+		warn(
+			"Không tìm thấy màu Role: " ..
+			tostring(roleColorName)
+		)
+
+		return
+
+	end
+
+
+	--================================================
+	-- MÀU TÊN
+	--================================================
+
+	local rainbow =
+		string.lower(
+			nameColorName
+		) == "rainbow"
+
+
+	local nameColor
+
+
+	if rainbow then
+
+		nameColor =
+			Color3.new(
+				1,
+				1,
+				1
+			)
+
+	else
+
+		nameColor =
+			CapColors[
+				string.lower(
+					nameColorName
+				)
+			]
+
+
+		if not nameColor then
+
+			warn(
+				"Không tìm thấy màu tên: " ..
+				tostring(nameColorName)
+			)
+
+			return
+
+		end
+
+	end
+
+
+	--================================================
+	-- CẤP ROLE MỚI
+	--================================================
+
+	-- Role cũ tự động bị thay thế
+	-- Icon cũ cũng nằm trong Title cũ
+	-- nên không còn nữa.
+
+	Roles[
+		string.lower(target.Name)
+	] = {
+
+		Title =
+			roleName,
+
+		TitleColor =
+			roleColor,
+
+		Color =
+			nameColor,
+
+		Rainbow =
+			rainbow,
+
+		Icon =
+			""
+
+	}
+
+
+	--================================================
+	-- LƯU VĨNH VIỄN
+	--================================================
+
+	SaveRole(
+		target
+	)
+
+
+	--================================================
+	-- ÁP DỤNG NGAY
+	--================================================
+
+	ApplyRole(
+		target
+	)
+
+
+	print(
+		"[CAPRANK] " ..
+		player.Name ..
+		" đã cấp " ..
+		roleName ..
+		" cho " ..
+		target.Name
+	)
+
+end
+
+
+--// ================= CHAT COMMAND SETUP =================
+
+local function SetupCapRank(player)
+
+	player.Chatted:Connect(
+		function(message)
+
+			CapCommand(
+				player,
+				message
+			)
+
+		end
+	)
+
+end
+
+
+--// ================= PLAYER JOIN =================
+
+Players.PlayerAdded:Connect(
+	function(player)
+
+
+		-- LOAD ROLE
+
+		LoadRole(
+			player
+		)
+
+
+		-- LOAD LEVEL
+
+		local success,data =
+			pcall(function()
+
+				return LevelData:GetAsync(
+					player.UserId
+				)
+
+			end)
+
+
+		if success and data then
+
+			PlayerStats[player] =
+				data
+
+		else
+
+			PlayerStats[player] = {
+
+				Level = 1
+
+			}
+
+		end
+
+
+		-- SETUP COMMAND
+
+		SetupCapRank(
+			player
+		)
+
+
+		-- 3 PHÚT = 1 LEVEL
+
+		task.spawn(function()
+
+			while player.Parent do
+
+				task.wait(180)
+
+
+				local stats =
+					PlayerStats[player]
+
+
+				if stats
+					and stats.Level < MAX_LEVEL then
+
+					stats.Level += 1
+
+
+					UpdateLevelDisplay(
+						player
+					)
+
+				end
+
+			end
+
+		end)
+
+
+		-- CHARACTER
+
+		player.CharacterAdded:Connect(
+			function(char)
+
+				task.wait(1)
+
+
+				local function ApplyNameTag()
+
+					local head =
+						char:FindFirstChild(
+							"Head"
+						)
+
+					if not head then
+						return
+					end
+
+
+					local old =
+						head:FindFirstChild(
+							"NameTag"
+						)
+
+					if old then
+
+						old:Destroy()
+
+					end
+
+
+					local tag =
+						NameTagTemplate:Clone()
+
+
+					tag.Name =
+						"NameTag"
+
+
+					tag.Parent =
+						head
+
+
+					tag.AlwaysOnTop =
+						true
+
+
+					tag.StudsOffset =
+						Vector3.new(
+							0,
+							3.2,
+							0
+						)
+
+
+					local main =
+						tag:WaitForChild(
+							"Main"
+						)
+
+
+					local nameLabel =
+						main:WaitForChild(
+							"UserDisplayName"
+						)
+
+
+					local username =
+						main:WaitForChild(
+							"Username"
+						)
+
+
+					local rank =
+						main:WaitForChild(
+							"Rank"
+						)
+
+
+					username.Text =
+						"@" ..
+						player.Name
+
+
+					UpdateLevelDisplay(
+						player
+					)
+
+
+					--================================================
+					-- ROLE
+					--================================================
+
+					local role =
+						Roles[
+							string.lower(
+								player.Name
+							)
+						]
+
+
+					if role then
+
+						-- Ví dụ:
+						-- Cậu Cả✅
+						-- Đại Ca👽
+						-- Support Hỗ Trợ🛎️
+
+						rank.Text =
+							role.Title
+
+
+						rank.TextColor3 =
+							role.TitleColor
+							or Color3.new(
+								1,
+								1,
+								1
+							)
+
+
+						if role.Rainbow then
+
+							RainbowEffect({
+
+								nameLabel,
+								username
+
+							})
+
+						else
+
+							nameLabel.TextColor3 =
+								role.Color
+								or Color3.new(
+									1,
+									1,
+									1
+								)
+
+
+							username.TextColor3 =
+								role.Color
+								or Color3.new(
+									1,
+									1,
+									1
+								)
+
+						end
+
+
+					else
+
+						local stats =
+							PlayerStats[player]
+
+
+						if stats
+							and stats.Level >= 30 then
+
+							rank.Text =
+								DanChiRole.Title
+
+
+							rank.TextColor3 =
+								DanChiRole.TitleColor
+
+
+							nameLabel.TextColor3 =
+								DanChiRole.Color
+
+
+							username.TextColor3 =
+								DanChiRole.Color
+
+
+						else
+
+							rank.Text =
+								"Người Dân"
+
+
+							rank.TextColor3 =
+								Color3.fromRGB(
+									0,
+									255,
+									0
+								)
+
+						end
+
+					end
+
+				end
+
+
+				ApplyNameTag()
+
+
+				char.ChildAdded:Connect(
+					function(child)
+
+						if child.Name ==
+							"Head" then
+
+							task.wait(0.5)
+
+							ApplyNameTag()
+
+						end
+
+					end
+				)
+
+			end
+		)
+
+	end
+)
+
+
+--// ================= SAVE =================
+
+Players.PlayerRemoving:Connect(
+	function(player)
+
+
+		-- LƯU ROLE
+
+		SaveRole(
+			player
+		)
+
+
+		-- LƯU LEVEL
+
+		local stats =
+			PlayerStats[player]
+
+
+		if stats then
+
+			pcall(function()
+
+				LevelData:SetAsync(
+
+					player.UserId,
+
+					stats
+
+				)
+
+			end)
+
+		end
+
+
+		PlayerStats[player] =
+			nil
+
+	end
+)
+
+
+--// ================= SERVER CLOSE =================
+
+game:BindToClose(
+	function()
+
+
+		for _,player in pairs(
+			Players:GetPlayers()
+		) do
+
+
+			SaveRole(
+				player
+			)
+
+
+			local stats =
+				PlayerStats[player]
+
+
+			if stats then
+
+				pcall(function()
+
+					LevelData:SetAsync(
+
+						player.UserId,
+
+						stats
+
+					)
+
+				end)
+
+			end
+
+		end
+
+	end
+)
