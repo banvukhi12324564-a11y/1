@@ -1,0 +1,537 @@
+local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
+
+local SkinStore = DataStoreService:GetDataStore("PermanentCharSkin_V5")
+
+--------------------------------------------------
+-- BIẾN
+--------------------------------------------------
+
+local LoadingSkin = {}
+local NoSavedSkin = {}
+
+--------------------------------------------------
+-- LƯU SKIN
+--------------------------------------------------
+
+local function SaveSkin(player, description)
+	if not player or not description then
+		return false
+	end
+
+	local data = {}
+
+	local properties = {
+		"BackAccessory",
+		"FaceAccessory",
+		"FrontAccessory",
+		"HairAccessory",
+		"HatAccessory",
+		"NeckAccessory",
+		"ShouldersAccessory",
+		"WaistAccessory",
+
+		"Face",
+		"Head",
+		"Shirt",
+		"Pants",
+		"GraphicTShirt",
+
+		"HeadColor",
+		"LeftArmColor",
+		"LeftLegColor",
+		"RightArmColor",
+		"RightLegColor",
+		"TorsoColor",
+
+		"BodyTypeScale",
+		"DepthScale",
+		"HeadScale",
+		"HeightScale",
+		"ProportionScale",
+		"WidthScale",
+
+		"ClimbAnimation",
+		"FallAnimation",
+		"IdleAnimation",
+		"JumpAnimation",
+		"RunAnimation",
+		"SwimAnimation",
+		"WalkAnimation",
+
+		"EmotesData",
+		"EquippedEmotesData",
+	}
+
+	for _, property in ipairs(properties) do
+		local success, value = pcall(function()
+			return description[property]
+		end)
+
+		if success then
+			data[property] = value
+		end
+	end
+
+	local success, err = pcall(function()
+		-- Skin mới ghi đè skin cũ
+		SkinStore:SetAsync(
+			"Player_" .. player.UserId,
+			data
+		)
+	end)
+
+	if not success then
+		warn(
+			"[CHAR] Không thể lưu skin: "
+				.. tostring(err)
+		)
+
+		return false
+	end
+
+	return true
+end
+
+--------------------------------------------------
+-- XÓA SKIN
+--------------------------------------------------
+
+local function RemoveSavedSkin(player)
+	local success, err = pcall(function()
+		SkinStore:RemoveAsync(
+			"Player_" .. player.UserId
+		)
+	end)
+
+	if not success then
+		warn(
+			"[CHAR] Không thể xóa skin: "
+				.. tostring(err)
+		)
+
+		return false
+	end
+
+	return true
+end
+
+--------------------------------------------------
+-- LOAD SKIN
+--------------------------------------------------
+
+local function LoadSkin(player)
+	local success, data = pcall(function()
+		return SkinStore:GetAsync(
+			"Player_" .. player.UserId
+		)
+	end)
+
+	if not success then
+		warn(
+			"[CHAR] Không thể load skin của "
+				.. player.Name
+		)
+
+		return nil
+	end
+
+	if not data then
+		return nil
+	end
+
+	local description =
+		Instance.new("HumanoidDescription")
+
+	for property, value in pairs(data) do
+		pcall(function()
+			description[property] = value
+		end)
+	end
+
+	return description
+end
+
+--------------------------------------------------
+-- ÁP DỤNG SKIN
+--------------------------------------------------
+
+local function ApplySkin(player, description)
+	if not player.Character then
+		return false
+	end
+
+	local humanoid =
+		player.Character:FindFirstChildOfClass(
+			"Humanoid"
+		)
+
+	if not humanoid then
+		return false
+	end
+
+	local success, err = pcall(function()
+
+		-- Dùng ApplyDescription để giữ skin
+		humanoid:ApplyDescription(
+			description
+		)
+
+	end)
+
+	if not success then
+		warn(
+			"[CHAR] ApplyDescription lỗi: "
+				.. tostring(err)
+		)
+
+		return false
+	end
+
+	return true
+end
+
+--------------------------------------------------
+-- ÁP DỤNG SKIN SAU MỖI LẦN RESPAWN
+--------------------------------------------------
+
+local function ApplySavedSkinAfterRespawn(player, character)
+
+	if NoSavedSkin[player] then
+		return
+	end
+
+	if not player.Parent then
+		return
+	end
+
+	-- Chờ Character của Adonis / Roblox load xong
+	local humanoid =
+		character:WaitForChild(
+			"Humanoid",
+			15
+		)
+
+	if not humanoid then
+		return
+	end
+
+	-- Chờ accessories/body load
+	task.wait(1)
+
+	if not player.Parent then
+		return
+	end
+
+	--------------------------------------------------
+	-- LOAD SKIN ĐÃ LƯU
+	--------------------------------------------------
+
+	local savedSkin =
+		LoadSkin(player)
+
+	if not savedSkin then
+		return
+	end
+
+	--------------------------------------------------
+	-- KIỂM TRA CHARACTER CÓ CÒN LÀ CHARACTER HIỆN TẠI
+	--------------------------------------------------
+
+	if player.Character ~= character then
+		return
+	end
+
+	--------------------------------------------------
+	-- ÁP DỤNG SKIN
+	--------------------------------------------------
+
+	LoadingSkin[player] = true
+
+	ApplySkin(
+		player,
+		savedSkin
+	)
+
+	task.wait(0.2)
+
+	LoadingSkin[player] = nil
+
+	print(
+		"[CHAR] Đã giữ skin sau respawn: "
+			.. player.Name
+	)
+end
+
+--------------------------------------------------
+-- /CHAR
+--------------------------------------------------
+
+local function ChangeChar(player, targetName)
+
+	if not targetName or targetName == "" then
+		return
+	end
+
+	local success, userId = pcall(function()
+		return Players:GetUserIdFromNameAsync(
+			targetName
+		)
+	end)
+
+	if not success or not userId then
+
+		warn(
+			"[CHAR] Không tìm thấy: "
+				.. targetName
+		)
+
+		return
+	end
+
+	local success2, description =
+		pcall(function()
+			return Players:GetHumanoidDescriptionFromUserId(
+				userId
+			)
+		end)
+
+	if not success2 or not description then
+
+		warn(
+			"[CHAR] Không lấy được skin của "
+				.. targetName
+		)
+
+		return
+	end
+
+	--------------------------------------------------
+	-- ĐỔI SKIN
+	--------------------------------------------------
+
+	local applied =
+		ApplySkin(
+			player,
+			description
+		)
+
+	if not applied then
+		return
+	end
+
+	--------------------------------------------------
+	-- LƯU SKIN MỚI NGAY
+	--------------------------------------------------
+
+	local saved =
+		SaveSkin(
+			player,
+			description
+		)
+
+	if saved then
+
+		NoSavedSkin[player] = nil
+
+		print(
+			"[CHAR] "
+				.. player.Name
+				.. " -> "
+				.. targetName
+				.. " | ĐÃ LƯU SKIN MỚI"
+		)
+
+	end
+end
+
+--------------------------------------------------
+-- /RE
+--------------------------------------------------
+
+local function RePlayer(player)
+
+	if not player then
+		return
+	end
+
+	-- Character mới sẽ tự động được ApplySavedSkin
+	player:LoadCharacter()
+end
+
+--------------------------------------------------
+-- /UNCHAR
+--------------------------------------------------
+
+local function UncharPlayer(player)
+
+	if not player then
+		return
+	end
+
+	local removed =
+		RemoveSavedSkin(player)
+
+	if not removed then
+		return
+	end
+
+	-- Báo rằng player không còn skin lưu
+	NoSavedSkin[player] = true
+
+	-- Respawn về avatar bình thường
+	player:LoadCharacter()
+
+	print(
+		"[CHAR] "
+			.. player.Name
+			.. " đã /unchar"
+	)
+end
+
+--------------------------------------------------
+-- SETUP PLAYER
+--------------------------------------------------
+
+local function SetupPlayer(player)
+
+	--------------------------------------------------
+	-- CHARACTER ADDED
+	--
+	-- QUAN TRỌNG:
+	-- Adonis ;re cũng tạo Character mới
+	-- nên đoạn này sẽ tự chạy lại.
+	--------------------------------------------------
+
+	player.CharacterAdded:Connect(function(character)
+
+		task.spawn(function()
+
+			ApplySavedSkinAfterRespawn(
+				player,
+				character
+			)
+
+		end)
+
+	end)
+
+	--------------------------------------------------
+	-- CHAT COMMAND
+	--------------------------------------------------
+
+	player.Chatted:Connect(function(message)
+
+		local args =
+			string.split(
+				message,
+				" "
+			)
+
+		local command =
+			string.lower(
+				args[1] or ""
+			)
+
+		--------------------------------------------------
+		-- /CHAR
+		--------------------------------------------------
+
+		if command == "/char" then
+
+			local targetName =
+				args[2]
+
+			if targetName then
+
+				ChangeChar(
+					player,
+					targetName
+				)
+
+			end
+
+		--------------------------------------------------
+		-- /RE
+		--------------------------------------------------
+
+		elseif command == "/re" then
+
+			RePlayer(player)
+
+		--------------------------------------------------
+		-- /UNCHAR
+		--------------------------------------------------
+
+		elseif command == "/unchar" then
+
+			UncharPlayer(player)
+
+		end
+	end)
+end
+
+--------------------------------------------------
+-- PLAYER JOIN
+--------------------------------------------------
+
+Players.PlayerAdded:Connect(function(player)
+
+	SetupPlayer(player)
+
+end)
+
+--------------------------------------------------
+-- PLAYER LEAVE
+--------------------------------------------------
+
+Players.PlayerRemoving:Connect(function(player)
+
+	--------------------------------------------------
+	-- Nếu đã /unchar thì KHÔNG lưu avatar thường
+	-- trở lại thành skin.
+	--------------------------------------------------
+
+	if NoSavedSkin[player] then
+		return
+	end
+
+	local character =
+		player.Character
+
+	if not character then
+		return
+	end
+
+	local humanoid =
+		character:FindFirstChildOfClass(
+			"Humanoid"
+		)
+
+	if not humanoid then
+		return
+	end
+
+	--------------------------------------------------
+	-- Chỉ lưu khi không phải lúc đang load skin
+	--------------------------------------------------
+
+	if LoadingSkin[player] then
+		return
+	end
+
+	local success, description =
+		pcall(function()
+			return humanoid:GetAppliedDescription()
+		end)
+
+	if success and description then
+
+		SaveSkin(
+			player,
+			description
+		)
+
+	end
+
+end)
