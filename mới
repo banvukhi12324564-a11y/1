@@ -1,0 +1,371 @@
+local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
+
+local SkinStore = DataStoreService:GetDataStore("CharSkinSave_V3")
+
+--------------------------------------------------
+-- LƯU SKIN MỚI
+--------------------------------------------------
+
+local function SaveSkin(player, description)
+	if not player or not description then
+		return
+	end
+
+	local data = {}
+
+	local properties = {
+		"BackAccessory",
+		"FaceAccessory",
+		"FrontAccessory",
+		"HairAccessory",
+		"HatAccessory",
+		"NeckAccessory",
+		"ShouldersAccessory",
+		"WaistAccessory",
+
+		"Face",
+		"Head",
+		"Shirt",
+		"Pants",
+		"GraphicTShirt",
+
+		"HeadColor",
+		"LeftArmColor",
+		"LeftLegColor",
+		"RightArmColor",
+		"RightLegColor",
+		"TorsoColor",
+
+		"BodyTypeScale",
+		"DepthScale",
+		"HeadScale",
+		"HeightScale",
+		"ProportionScale",
+		"WidthScale",
+
+		"ClimbAnimation",
+		"FallAnimation",
+		"IdleAnimation",
+		"JumpAnimation",
+		"RunAnimation",
+		"SwimAnimation",
+		"WalkAnimation",
+
+		"EmotesData",
+		"EquippedEmotesData",
+	}
+
+	for _, property in ipairs(properties) do
+		local success, value = pcall(function()
+			return description[property]
+		end)
+
+		if success then
+			data[property] = value
+		end
+	end
+
+	local success, err = pcall(function()
+		-- SetAsync = skin mới ghi đè skin cũ
+		SkinStore:SetAsync(
+			"Skin_" .. player.UserId,
+			data
+		)
+	end)
+
+	if success then
+		print(
+			"[CHAR] Đã lưu skin MỚI của "
+				.. player.Name
+		)
+	else
+		warn(
+			"[CHAR] Lỗi lưu skin: "
+				.. tostring(err)
+		)
+	end
+end
+
+--------------------------------------------------
+-- LOAD SKIN ĐÃ LƯU
+--------------------------------------------------
+
+local function LoadSkin(player)
+	local success, data = pcall(function()
+		return SkinStore:GetAsync(
+			"Skin_" .. player.UserId
+		)
+	end)
+
+	if not success then
+		warn(
+			"[CHAR] Không load được skin của "
+				.. player.Name
+		)
+
+		return nil
+	end
+
+	if not data then
+		return nil
+	end
+
+	local description =
+		Instance.new("HumanoidDescription")
+
+	for property, value in pairs(data) do
+		pcall(function()
+			description[property] = value
+		end)
+	end
+
+	return description
+end
+
+--------------------------------------------------
+-- ÁP DỤNG SKIN
+--------------------------------------------------
+
+local function ApplySkin(player, description)
+
+	if not player.Character then
+		return false
+	end
+
+	local humanoid =
+		player.Character:FindFirstChildOfClass(
+			"Humanoid"
+		)
+
+	if not humanoid then
+		return false
+	end
+
+	local success, err = pcall(function()
+		humanoid:ApplyDescription(
+			description
+		)
+	end)
+
+	if not success then
+		warn(
+			"[CHAR] Lỗi ApplyDescription: "
+				.. tostring(err)
+		)
+
+		return false
+	end
+
+	return true
+end
+
+--------------------------------------------------
+-- /CHAR TÊN NGƯỜI CHƠI
+--------------------------------------------------
+
+local function ChangeChar(player, targetName)
+
+	if not targetName or targetName == "" then
+		return
+	end
+
+	--------------------------------------------------
+	-- TÌM USER ID
+	--------------------------------------------------
+
+	local success, userId = pcall(function()
+		return Players:GetUserIdFromNameAsync(
+			targetName
+		)
+	end)
+
+	if not success or not userId then
+
+		warn(
+			"[CHAR] Không tìm thấy: "
+				.. targetName
+		)
+
+		return
+	end
+
+	--------------------------------------------------
+	-- LẤY SKIN MỚI
+	--------------------------------------------------
+
+	local success2, newDescription =
+		pcall(function()
+			return Players:GetHumanoidDescriptionFromUserId(
+				userId
+			)
+		end)
+
+	if not success2 or not newDescription then
+
+		warn(
+			"[CHAR] Không lấy được skin của "
+				.. targetName
+		)
+
+		return
+	end
+
+	--------------------------------------------------
+	-- ÁP DỤNG SKIN MỚI
+	--------------------------------------------------
+
+	local applied =
+		ApplySkin(
+			player,
+			newDescription
+		)
+
+	if not applied then
+		return
+	end
+
+	--------------------------------------------------
+	-- QUAN TRỌNG:
+	-- LƯU SKIN MỚI NGAY LẬP TỨC
+	-- SKIN CŨ BỊ GHI ĐÈ
+	--------------------------------------------------
+
+	SaveSkin(
+		player,
+		newDescription
+	)
+
+	print(
+		"[CHAR] "
+			.. player.Name
+			.. " -> "
+			.. targetName
+			.. " | SKIN MỚI ĐÃ ĐƯỢC LƯU"
+	)
+end
+
+--------------------------------------------------
+-- PLAYER SETUP
+--------------------------------------------------
+
+local function SetupPlayer(player)
+
+	--------------------------------------------------
+	-- LỆNH /CHAR
+	--------------------------------------------------
+
+	player.Chatted:Connect(function(message)
+
+		local args =
+			string.split(
+				message,
+				" "
+			)
+
+		local command =
+			string.lower(
+				args[1] or ""
+			)
+
+		if command == "/char" then
+
+			local targetName =
+				args[2]
+
+			if targetName then
+
+				ChangeChar(
+					player,
+					targetName
+				)
+
+			end
+		end
+	end)
+
+	--------------------------------------------------
+	-- KHI RESPAWN
+	--------------------------------------------------
+
+	player.CharacterAdded:Connect(function(character)
+
+		local humanoid =
+			character:WaitForChild(
+				"Humanoid",
+				10
+			)
+
+		if not humanoid then
+			return
+		end
+
+		task.wait(1)
+
+		--------------------------------------------------
+		-- LẤY SKIN CUỐI CÙNG ĐÃ LƯU
+		--------------------------------------------------
+
+		local savedSkin =
+			LoadSkin(player)
+
+		if savedSkin then
+
+			ApplySkin(
+				player,
+				savedSkin
+			)
+
+			print(
+				"[CHAR] Đã khôi phục skin cuối cùng của "
+					.. player.Name
+			)
+		end
+	end)
+end
+
+--------------------------------------------------
+-- PLAYER JOIN
+--------------------------------------------------
+
+Players.PlayerAdded:Connect(
+	SetupPlayer
+)
+
+--------------------------------------------------
+-- PLAYER LEAVE
+--------------------------------------------------
+
+Players.PlayerRemoving:Connect(function(player)
+
+	local character =
+		player.Character
+
+	if not character then
+		return
+	end
+
+	local humanoid =
+		character:FindFirstChildOfClass(
+			"Humanoid"
+		)
+
+	if not humanoid then
+		return
+	end
+
+	local success, description =
+		pcall(function()
+			return humanoid:GetAppliedDescription()
+		end)
+
+	if success and description then
+
+		-- Lưu skin hiện tại lần cuối
+		SaveSkin(
+			player,
+			description
+		)
+
+	end
+end)
